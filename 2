@@ -1,0 +1,67 @@
+Add-Type -AssemblyName System.Windows.Forms
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public class WinAPI
+{
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
+    public const uint LEFTDOWN = 0x0002;
+    public const uint LEFTUP   = 0x0004;
+}
+"@
+
+# ==========================
+# ПАТТЕРНЫ
+# ==========================
+$Patterns = @(
+    @{
+        Window = "Блокнот"
+        Clicks = @(
+            @{X=100; Y=200}
+            @{X=250; Y=350}
+            @{X=400; Y=500}
+        )
+    },
+    @{
+        Window = "Google Chrome"
+        Clicks = @(
+            @{X=500; Y=300}
+        )
+    }
+)
+
+foreach ($Pattern in $Patterns) {
+
+    $process = Get-Process |
+        Where-Object {$_.MainWindowTitle -like "*$($Pattern.Window)*"} |
+        Select-Object -First 1
+
+    if ($process) {
+
+        $wshell = New-Object -ComObject WScript.Shell
+        $wshell.AppActivate($process.Id)
+        Start-Sleep -Milliseconds 500
+
+        foreach ($Click in $Pattern.Clicks) {
+
+            [WinAPI]::SetCursorPos($Click.X, $Click.Y)
+
+            Start-Sleep -Milliseconds 100
+
+            [WinAPI]::mouse_event([WinAPI]::LEFTDOWN,0,0,0,[UIntPtr]::Zero)
+            [WinAPI]::mouse_event([WinAPI]::LEFTUP,0,0,0,[UIntPtr]::Zero)
+
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    else {
+        Write-Host "Окно '$($Pattern.Window)' не найдено."
+    }
+} 
